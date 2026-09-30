@@ -251,4 +251,140 @@ void main() {
 
     expect(popup.value, isNotNull);
   });
+
+  group('dismiss', () {
+    const transition = Duration(milliseconds: 600);
+    final hudFinder =
+        find.byType(CircularProgressIndicator, skipOffstage: false);
+
+    testWidgets('works after the owner widget is unmounted',
+        (WidgetTester tester) async {
+      final showOwner = ValueNotifier<bool>(true);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: ValueListenableBuilder<bool>(
+              valueListenable: showOwner,
+              builder: (context, show, _) =>
+                  show ? const _Owner() : const Text('replacement'),
+            ),
+          ),
+        ),
+      );
+      final popup = PopupHUD(tester.state(find.byType(_Owner)).context);
+      popup.show();
+      await tester.pump();
+      await tester.pump(transition);
+      expect(hudFinder, findsOneWidget);
+
+      showOwner.value = false;
+      await tester.pump();
+      expect(find.byType(_Owner), findsNothing);
+      expect(hudFinder, findsOneWidget);
+
+      expect(popup.dismiss(), isTrue);
+      await tester.pump();
+      await tester.pump(transition);
+      expect(hudFinder, findsNothing);
+      expect(find.text('replacement'), findsOneWidget);
+    });
+
+    testWidgets('is a no-op once the HUD was removed with its page',
+        (WidgetTester tester) async {
+      final showPage = ValueNotifier<bool>(true);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ValueListenableBuilder<bool>(
+            valueListenable: showPage,
+            builder: (context, show, _) => Navigator(
+              pages: [
+                const MaterialPage<void>(
+                  key: ValueKey('list'),
+                  child: Scaffold(body: Text('list')),
+                ),
+                if (show)
+                  const MaterialPage<void>(
+                    key: ValueKey('detail'),
+                    child: Scaffold(body: _Owner()),
+                  ),
+              ],
+              onDidRemovePage: (_) {},
+            ),
+          ),
+        ),
+      );
+      final popup = PopupHUD(tester.state(find.byType(_Owner)).context);
+      popup.show();
+      await tester.pump();
+      await tester.pump(transition);
+      expect(hudFinder, findsOneWidget);
+
+      showPage.value = false;
+      await tester.pump();
+      await tester.pump(transition);
+      expect(find.byType(_Owner, skipOffstage: false), findsNothing);
+      expect(hudFinder, findsNothing);
+
+      expect(popup.dismiss(), isFalse);
+      await tester.pump();
+      await tester.pump(transition);
+      expect(find.text('list'), findsOneWidget);
+    });
+
+    testWidgets('removes the HUD, not a route pushed above it',
+        (WidgetTester tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(home: Scaffold(body: _Owner())),
+      );
+      final ownerContext = tester.state(find.byType(_Owner)).context;
+      final popup = PopupHUD(ownerContext);
+      popup.show();
+      await tester.pump();
+      await tester.pump(transition);
+      Navigator.of(ownerContext).push(
+        MaterialPageRoute<void>(
+          builder: (_) => const Scaffold(body: Text('top')),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(transition);
+      expect(find.text('top'), findsOneWidget);
+      expect(hudFinder, findsOneWidget);
+
+      expect(popup.dismiss(), isTrue);
+      await tester.pump();
+      await tester.pump(transition);
+      expect(find.text('top'), findsOneWidget);
+      expect(hudFinder, findsNothing);
+    });
+
+    testWidgets('a second call does nothing', (WidgetTester tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(home: Scaffold(body: _Owner())),
+      );
+      final popup = PopupHUD(tester.state(find.byType(_Owner)).context);
+      popup.show();
+      await tester.pump();
+      await tester.pump(transition);
+
+      expect(popup.dismiss(), isTrue);
+      expect(popup.dismiss(), isFalse);
+      await tester.pump();
+      await tester.pump(transition);
+      expect(hudFinder, findsNothing);
+      expect(find.text('owner'), findsOneWidget);
+    });
+  });
+}
+
+class _Owner extends StatefulWidget {
+  const _Owner({Key? key}) : super(key: key);
+
+  @override
+  State<_Owner> createState() => _OwnerState();
+}
+
+class _OwnerState extends State<_Owner> {
+  @override
+  Widget build(BuildContext context) => const Text('owner');
 }

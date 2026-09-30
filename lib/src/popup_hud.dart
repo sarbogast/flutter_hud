@@ -40,9 +40,21 @@ class PopupHUD {
   /// Show [PopupHUD] on top of current [Navigator]
   Future<void> show() => Navigator.push(context, _popupHUD);
 
-  /// Dismiss current showing [PopupHUD] from the top of current [Navigator]
+  /// Dismiss this [PopupHUD] from the [Navigator] that shows it.
+  ///
+  /// Targets the HUD's own route rather than looking the navigator up through
+  /// [context], so it is safe after the widget that showed the HUD has been
+  /// unmounted, and it never pops a route pushed above the HUD. Returns false
+  /// when the HUD is no longer showing (already dismissed, or removed along
+  /// with the page below it).
   bool dismiss() {
-    Navigator.pop(context);
+    final navigator = _popupHUD.navigator;
+    if (navigator == null || !_popupHUD.isActive) return false;
+    if (_popupHUD.isCurrent) {
+      navigator.pop();
+    } else {
+      navigator.removeRoute(_popupHUD);
+    }
     return true;
   }
 }

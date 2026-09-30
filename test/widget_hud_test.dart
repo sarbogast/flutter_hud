@@ -6,9 +6,12 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   testWidgets('Default HUD not shown', (WidgetTester tester) async {
     await tester.pumpWidget(
-      WidgetHUD(
-        builder: (BuildContext context, Widget? child) => child!,
-        child: const MaterialApp(home: Text('This is body')),
+      Directionality(
+        textDirection: TextDirection.ltr,
+        child: WidgetHUD(
+          builder: (BuildContext context, Widget? child) => child!,
+          child: const MaterialApp(home: Text('This is body')),
+        ),
       ),
     );
 
